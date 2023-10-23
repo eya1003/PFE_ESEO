@@ -25,6 +25,9 @@ from turtle import width
 import sys
 import os
 import platform
+import sqlite3
+from modules.conn_database import connect_database, create_table, create_test_data, close_database
+
 OPENSLIDE_PATH = "C:\\Users\\eyaam\\Code\\openslide-win64-20221217\\bin"
 # import matplotlib.pyplot as plt
 
@@ -39,7 +42,23 @@ widgets = None
 
 
 class MainWindow(QMainWindow):
+        
     def __init__(self):
+        # Connectez-vous à la base de données
+        conn, cursor = connect_database("ma_base_de_donnees.db")
+
+        # Créez la table si elle n'existe pas
+        create_table(cursor)
+
+        # Créez des données de test
+        create_test_data(cursor)
+
+        # Validez les modifications et fermez la connexion
+        conn.commit()
+        close_database(conn)
+        print("Données de test ajoutées avec succès.")
+
+
         QMainWindow.__init__(self)
 
         # SET AS GLOBAL WIDGETS
@@ -159,10 +178,15 @@ class MainWindow(QMainWindow):
                 title="Sélection du dossier de sauvegarde")
             widgets.lineEdit.setText("img_path")
             print(img_path)
-            # process_image(img_path, saving_path)
+            process_image(img_path, saving_path)
 
         # PRINT BTN NAME
         # print(f'Button "{btnName}" pressed!')
+        
+        
+         # Appel de la fonction pour charger les données
+         
+        self.load_data_to_table()
 
     # RESIZE EVENTS
     # ///////////////////////////////////////////////////////////////
@@ -184,12 +208,36 @@ class MainWindow(QMainWindow):
             print('Mouse click: RIGHT CLICK')
 
     # Add the process_image function here
+    def load_data_to_table(self):
+        # Connexion à la base de données
+        conn = sqlite3.connect("ma_base_de_donnees.db")
+        cursor = conn.cursor()
 
+        # Exécutez votre requête SQL pour extraire les données
+        cursor.execute("SELECT image_name, date_processed FROM images")
 
+        # Récupérez toutes les lignes de résultats
+        rows = cursor.fetchall()
+
+        # Parcourez les lignes de résultats et remplissez le tableau
+        for row_number, row_data in enumerate(rows, start=1):
+            # Insérez une nouvelle ligne
+            self.ui.tableWidget.insertRow(row_number)
+
+            for column_number, column_data in enumerate(row_data):
+                if column_number == 0:
+                    # Colonne "Image"
+                    item = QTableWidgetItem(column_data)
+                    self.ui.tableWidget.setItem(row_number, 0, item)
+                elif column_number == 1:
+                    # Colonne "Date"
+                    item = QTableWidgetItem(column_data)
+                    self.ui.tableWidget.setItem(row_number, 1, item)
+                    
 def process_image(img_path, saving_path):
     # The content of the process_image function
-    OPENSLIDE_PATH = "C:\\Users\\ProtocolBlood\\Desktop\\PFE_C\\openslide-win64-20221217\\bin"
-
+    OPENSLIDE_PATH = "C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\PFE_ESEO-master\\openslide-win64-20221217\\bin"
+    
     if hasattr(os, 'add_dll_directory'):
         with os.add_dll_directory(OPENSLIDE_PATH):
             from openslide import OpenSlide
@@ -265,3 +313,4 @@ if __name__ == "__main__":
     app.setWindowIcon(QIcon("icon.ico"))
     window = MainWindow()
     sys.exit(app.exec())
+    
