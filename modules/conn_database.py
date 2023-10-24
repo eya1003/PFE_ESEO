@@ -14,12 +14,5 @@ def create_table(cursor):
     )
     """)
 
-def create_test_data(cursor):
-    cursor.execute("""
-    INSERT INTO images (image_name, date_processed) VALUES
-    ('image1.png', '2023-10-23'),
-    ('image2.png', '2023-10-24')
-    """)
-
 def close_database(conn):
     conn.close()

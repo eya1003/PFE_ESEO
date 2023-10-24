@@ -25,8 +25,9 @@ from turtle import width
 import sys
 import os
 import platform
+import datetime
 import sqlite3
-from modules.conn_database import connect_database, create_table, create_test_data, close_database
+from modules.conn_database import connect_database, create_table, close_database
 
 OPENSLIDE_PATH = "C:\\Users\\eyaam\\Code\\openslide-win64-20221217\\bin"
 # import matplotlib.pyplot as plt
@@ -45,13 +46,10 @@ class MainWindow(QMainWindow):
         
     def __init__(self):
         # Connectez-vous à la base de données
-        conn, cursor = connect_database("ma_base_de_donnees.db")
+        conn, cursor = connect_database("database.db")
 
         # Créez la table si elle n'existe pas
         create_table(cursor)
-
-        # Créez des données de test
-        create_test_data(cursor)
 
         # Validez les modifications et fermez la connexion
         conn.commit()
@@ -210,7 +208,7 @@ class MainWindow(QMainWindow):
     # Add the process_image function here
     def load_data_to_table(self):
         # Connexion à la base de données
-        conn = sqlite3.connect("ma_base_de_donnees.db")
+        conn = sqlite3.connect("database.db")
         cursor = conn.cursor()
 
         # Exécutez votre requête SQL pour extraire les données
@@ -227,13 +225,72 @@ class MainWindow(QMainWindow):
             for column_number, column_data in enumerate(row_data):
                 if column_number == 0:
                     # Colonne "Image"
-                    item = QTableWidgetItem(column_data)
+                    # Supprimez l'extension du nom de fichier
+                    filename = os.path.splitext(column_data)[0]
+                    item = QTableWidgetItem(filename)
                     self.ui.tableWidget.setItem(row_number, 0, item)
                 elif column_number == 1:
                     # Colonne "Date"
                     item = QTableWidgetItem(column_data)
                     self.ui.tableWidget.setItem(row_number, 1, item)
-                    
+
+            # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
+            image_name = os.path.splitext(row_data[0])[0]
+            clean_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Clean"
+            unusable_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Unusable"
+
+            num_clean_images = len([f for f in os.listdir(clean_folder) if os.path.isfile(os.path.join(clean_folder, f))])
+            num_unusable_images = len([f for f in os.listdir(unusable_folder) if os.path.isfile(os.path.join(unusable_folder, f))])
+
+            # Mettez à jour les colonnes "Cell" et "Line" du tableau
+            item = QTableWidgetItem(str(num_clean_images))
+            self.ui.tableWidget.setItem(row_number, 2, item)
+            item = QTableWidgetItem(str(num_unusable_images))
+            self.ui.tableWidget.setItem(row_number, 3, item)
+
+            # Connexion à la base de données
+            conn = sqlite3.connect("database.db")
+            cursor = conn.cursor()
+
+            # Exécutez votre requête SQL pour extraire les données
+            cursor.execute("SELECT image_name, date_processed FROM images")
+
+            # Récupérez toutes les lignes de résultats
+            rows = cursor.fetchall()
+
+            # Parcourez les lignes de résultats et remplissez le tableau
+            for row_number, row_data in enumerate(rows, start=1):
+                # Insérez une nouvelle ligne
+                self.ui.tableWidget.insertRow(row_number)
+
+                for column_number, column_data in enumerate(row_data):
+                    if column_number == 0:
+                        # Colonne "Image"
+                        item = QTableWidgetItem(column_data)
+                        self.ui.tableWidget.setItem(row_number, 0, item)
+                    elif column_number == 1:
+                        # Colonne "Date"
+                        item = QTableWidgetItem(column_data)
+                        self.ui.tableWidget.setItem(row_number, 1, item)
+                        
+                    # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
+                # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
+                
+                image_name = row_data[0]
+                clean_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Clean"
+                unusable_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Unusable"
+
+                # Vérifiez si les dossiers existent avant de compter les images
+                if os.path.exists(clean_folder):
+                    num_clean_images = len([f for f in os.listdir(clean_folder) if os.path.isfile(os.path.join(clean_folder, f))])
+                    item = QTableWidgetItem(str(num_clean_images))
+                    self.ui.tableWidget.setItem(row_number, 2, item)
+
+                if os.path.exists(unusable_folder):
+                    num_unusable_images = len([f for f in os.listdir(unusable_folder) if os.path.isfile(os.path.join(unusable_folder, f))])
+                    item = QTableWidgetItem(str(num_unusable_images))
+                    self.ui.tableWidget.setItem(row_number, 3, item)
+                
 def process_image(img_path, saving_path):
     # The content of the process_image function
     OPENSLIDE_PATH = "C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\PFE_ESEO-master\\openslide-win64-20221217\\bin"
@@ -304,8 +361,18 @@ def process_image(img_path, saving_path):
                         tile.save(f"{dir_u}/{directory}{j}_{k}.png")
                 else:
                     tile.save(f"{dir_u}/{directory}_{j}_{k}.png")
-
+                    
+   
     print("fin de l'image " + directory)
+    #partie BDD d'image ajout
+    conn, cursor = connect_database("database.db")
+    cursor.execute("INSERT INTO images (image_name, date_processed) VALUES (?, ?)",
+                   (directory, datetime.date.today()))  
+    conn.commit()
+    close_database(conn)
+    print("image ajoutée à la BDD" )
+
+    
 
 
 if __name__ == "__main__":
