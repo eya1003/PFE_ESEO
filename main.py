@@ -41,6 +41,7 @@ os.environ["QT_FONT_DPI"] = "96"
 # ///////////////////////////////////////////////////////////////
 widgets = None
 
+processed_images = set()     
 
 class MainWindow(QMainWindow):
         
@@ -179,7 +180,7 @@ class MainWindow(QMainWindow):
             process_image(img_path, saving_path)
 
         # PRINT BTN NAME
-        # print(f'Button "{btnName}" pressed!')
+        print(f'Button "{btnName}" pressed!')
         
         
          # Appel de la fonction pour charger les données
@@ -220,6 +221,7 @@ class MainWindow(QMainWindow):
         # Parcourez les lignes de résultats et remplissez le tableau
         for row_number, row_data in enumerate(rows, start=1):
             # Insérez une nouvelle ligne
+            
             self.ui.tableWidget.insertRow(row_number)
 
             for column_number, column_data in enumerate(row_data):
@@ -261,116 +263,128 @@ class MainWindow(QMainWindow):
             # Parcourez les lignes de résultats et remplissez le tableau
             for row_number, row_data in enumerate(rows, start=1):
                 # Insérez une nouvelle ligne
-                self.ui.tableWidget.insertRow(row_number)
+                image_name = os.path.splitext(row_data[0])[0]
+                is_duplicate = False
 
-                for column_number, column_data in enumerate(row_data):
-                    if column_number == 0:
-                        # Colonne "Image"
-                        item = QTableWidgetItem(column_data)
-                        self.ui.tableWidget.setItem(row_number, 0, item)
-                    elif column_number == 1:
-                        # Colonne "Date"
-                        item = QTableWidgetItem(column_data)
-                        self.ui.tableWidget.setItem(row_number, 1, item)
-                        
+                for current_row in range(self.ui.tableWidget.rowCount()):
+                    current_image_name_item = self.ui.tableWidget.item(current_row, 0)
+                    if current_image_name_item and current_image_name_item.text() == image_name:
+                        is_duplicate = True
+                        break
+
+                if not is_duplicate:
+                    self.ui.tableWidget.insertRow(row_number)
+
+                    for column_number, column_data in enumerate(row_data):
+                        if column_number == 0:
+                            # Colonne "Image"
+                            item = QTableWidgetItem(column_data)
+                            self.ui.tableWidget.setItem(row_number, 0, item)
+                        elif column_number == 1:
+                            # Colonne "Date"
+                            item = QTableWidgetItem(column_data)
+                            self.ui.tableWidget.setItem(row_number, 1, item)
+                            
+                        # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
                     # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
-                # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
-                
-                image_name = row_data[0]
-                clean_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Clean"
-                unusable_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Unusable"
-
-                # Vérifiez si les dossiers existent avant de compter les images
-                if os.path.exists(clean_folder):
-                    num_clean_images = len([f for f in os.listdir(clean_folder) if os.path.isfile(os.path.join(clean_folder, f))])
-                    item = QTableWidgetItem(str(num_clean_images))
-                    self.ui.tableWidget.setItem(row_number, 2, item)
-
-                if os.path.exists(unusable_folder):
-                    num_unusable_images = len([f for f in os.listdir(unusable_folder) if os.path.isfile(os.path.join(unusable_folder, f))])
-                    item = QTableWidgetItem(str(num_unusable_images))
-                    self.ui.tableWidget.setItem(row_number, 3, item)
-                
-def process_image(img_path, saving_path):
-    # The content of the process_image function
-    OPENSLIDE_PATH = "C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\PFE_ESEO-master\\openslide-win64-20221217\\bin"
-    
-    if hasattr(os, 'add_dll_directory'):
-        with os.add_dll_directory(OPENSLIDE_PATH):
-            from openslide import OpenSlide
-    else:
-        from openslide import OpenSlide
-
-    violet_threshold = 0.005
-    black_threshold = 0.8
-    white_threshold = 0.48
-
-    img = OpenSlide(img_path)
-
-    last_slash = img_path.rfind('/')
-    point = img_path.rfind('_T')
-    directory = img_path[last_slash + 1: point]
-
-    dim = img.dimensions
-    ratio = 2
-    dim = (int(dim[0] / ratio), int(dim[1] / ratio))
-    imageDL = img.get_thumbnail(dim)
-
-    width, height = imageDL.size
-    tileNumberHeight = 600
-    tileNumberWidth = 600
-    new_dir_path = saving_path + "/" + directory
-
-    os.mkdir(new_dir_path)
-
-    dir_ok = new_dir_path + "/Clean"
-    dir_u = new_dir_path + "/Unusable"
-    os.mkdir(dir_ok)
-    os.mkdir(dir_u)
-
-    for j in range(0, height, tileNumberHeight):
-        top = j
-        bottom = min(j + tileNumberHeight, height)
-
-        for k in range(0, width, tileNumberWidth):
-            left = k
-            right = min(k + tileNumberWidth, width)
-            box = (left, top, right, bottom)
-            tile = imageDL.crop(box)
-            largeur, hauteur = tile.size
-
-            if largeur == 600 and hauteur == 600:
-                pixel_data = np.array(tile)
-                violet_mask = np.all(pixel_data >= [
-                                     102, 0, 102], axis=-1) & np.all(pixel_data <= [255, 102, 255], axis=-1)
-                num_violet_pixels = np.sum(violet_mask)
-                total_pixels = pixel_data.shape[0] * pixel_data.shape[1]
-                percent_violet_pixels = 100 * num_violet_pixels / total_pixels
-
-                if percent_violet_pixels >= violet_threshold:
-                    black_mask = pixel_data[:, :, 0] < 10
-                    num_black_pixels = np.sum(black_mask)
-                    percent_black_pixels = 100 * num_black_pixels / total_pixels
-                    white_mask = pixel_data[:, :, 1] > 245
-                    num_white_pixels = np.sum(white_mask)
-                    percent_white_pixels = 100 * num_white_pixels / total_pixels
-
-                    if percent_black_pixels <= black_threshold and percent_white_pixels <= white_threshold:
-                        tile.save(f"{dir_ok}/{directory}{j}_{k}.png")
-                    else:
-                        tile.save(f"{dir_u}/{directory}{j}_{k}.png")
-                else:
-                    tile.save(f"{dir_u}/{directory}_{j}_{k}.png")
                     
-   
-    print("fin de l'image " + directory)
-    #partie BDD d'image ajout
-    conn, cursor = connect_database("database.db")
-    cursor.execute("INSERT INTO images (image_name, date_processed) VALUES (?, ?)",
-                   (directory, datetime.date.today()))  
-    conn.commit()
-    close_database(conn)
-    print("image ajoutée à la BDD" )
+                    image_name = row_data[0]
+                    clean_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Clean"
+                    unusable_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Unusable"
+
+                    # Vérifiez si les dossiers existent avant de compter les images
+                    if os.path.exists(clean_folder):
+                        num_clean_images = len([f for f in os.listdir(clean_folder) if os.path.isfile(os.path.join(clean_folder, f))])
+                        item = QTableWidgetItem(str(num_clean_images))
+                        self.ui.tableWidget.setItem(row_number, 2, item)
+
+                    if os.path.exists(unusable_folder):
+                        num_unusable_images = len([f for f in os.listdir(unusable_folder) if os.path.isfile(os.path.join(unusable_folder, f))])
+                        item = QTableWidgetItem(str(num_unusable_images))
+                        self.ui.tableWidget.setItem(row_number, 3, item)
+                        
+def process_image(img_path, saving_path):
+    if img_path not in processed_images:
+        # The content of the process_image function
+        OPENSLIDE_PATH = "C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\PFE_ESEO-master\\openslide-win64-20221217\\bin"
+        
+        if hasattr(os, 'add_dll_directory'):
+            with os.add_dll_directory(OPENSLIDE_PATH):
+                from openslide import OpenSlide
+        else:
+            from openslide import OpenSlide
+
+        violet_threshold = 0.005
+        black_threshold = 0.8
+        white_threshold = 0.48
+
+        img = OpenSlide(img_path)
+
+        last_slash = img_path.rfind('/')
+        point = img_path.rfind('_T')
+        directory = img_path[last_slash + 1: point]
+
+        dim = img.dimensions
+        ratio = 2
+        dim = (int(dim[0] / ratio), int(dim[1] / ratio))
+        imageDL = img.get_thumbnail(dim)
+
+        width, height = imageDL.size
+        tileNumberHeight = 600
+        tileNumberWidth = 600
+        new_dir_path = saving_path + "/" + directory
+
+        os.mkdir(new_dir_path)
+
+        dir_ok = new_dir_path + "/Clean"
+        dir_u = new_dir_path + "/Unusable"
+        os.mkdir(dir_ok)
+        os.mkdir(dir_u)
+
+        for j in range(0, height, tileNumberHeight):
+            top = j
+            bottom = min(j + tileNumberHeight, height)
+
+            for k in range(0, width, tileNumberWidth):
+                left = k
+                right = min(k + tileNumberWidth, width)
+                box = (left, top, right, bottom)
+                tile = imageDL.crop(box)
+                largeur, hauteur = tile.size
+
+                if largeur == 600 and hauteur == 600:
+                    pixel_data = np.array(tile)
+                    violet_mask = np.all(pixel_data >= [
+                                        102, 0, 102], axis=-1) & np.all(pixel_data <= [255, 102, 255], axis=-1)
+                    num_violet_pixels = np.sum(violet_mask)
+                    total_pixels = pixel_data.shape[0] * pixel_data.shape[1]
+                    percent_violet_pixels = 100 * num_violet_pixels / total_pixels
+
+                    if percent_violet_pixels >= violet_threshold:
+                        black_mask = pixel_data[:, :, 0] < 10
+                        num_black_pixels = np.sum(black_mask)
+                        percent_black_pixels = 100 * num_black_pixels / total_pixels
+                        white_mask = pixel_data[:, :, 1] > 245
+                        num_white_pixels = np.sum(white_mask)
+                        percent_white_pixels = 100 * num_white_pixels / total_pixels
+
+                        if percent_black_pixels <= black_threshold and percent_white_pixels <= white_threshold:
+                            tile.save(f"{dir_ok}/{directory}{j}_{k}.png")
+                        else:
+                            tile.save(f"{dir_u}/{directory}{j}_{k}.png")
+                    else:
+                        tile.save(f"{dir_u}/{directory}_{j}_{k}.png")
+                        
+    
+        print("fin de l'image " + directory)
+        processed_images.add(img_path)
+        #partie BDD d'image ajout
+        conn, cursor = connect_database("database.db")
+        cursor.execute("INSERT INTO images (image_name, date_processed) VALUES (?, ?)",
+                    (directory, datetime.date.today()))  
+        conn.commit()
+        close_database(conn)
+        print("image ajoutée à la BDD" )
 
     
 
