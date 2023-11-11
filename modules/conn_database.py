@@ -14,5 +14,13 @@ def create_table(cursor):
     )
     """)
 
+def delete_image(cursor, image_name):
+    try:
+        cursor.execute("DELETE FROM images WHERE image_name=?", (image_name,))
+    except sqlite3.Error as e:
+        print(f"Error deleting image {image_name}: {e}")
+    else:
+        print(f"Deleted image: {image_name}")
+
 def close_database(conn):
     conn.close()
