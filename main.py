@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         # Connectez-vous à la base de données
         conn, cursor = connect_database("database.db")
-
+        self.data_loaded = False
         # Créez la table si elle n'existe pas
         create_table(cursor)
 
@@ -155,6 +155,7 @@ class MainWindow(QMainWindow):
 
         # SHOW WIDGETS PAGE
         if btnName == "btn_widgets":
+            self.load_data_to_table()
             widgets.stackedWidget.setCurrentWidget(widgets.widgets)
             UIFunctions.resetStyle(self, btnName)
             btn.setStyleSheet(UIFunctions.selectMenu(btn.styleSheet()))
@@ -172,6 +173,7 @@ class MainWindow(QMainWindow):
         #     print("Save BTN clicked!")
 
         if btnName == "pushButton":
+            
             img_path = filedialog.askopenfilename()
             saving_path = filedialog.askdirectory(
                 title="Sélection du dossier de sauvegarde")
@@ -185,7 +187,6 @@ class MainWindow(QMainWindow):
         
          # Appel de la fonction pour charger les données
          
-        self.load_data_to_table()
 
     # RESIZE EVENTS
     # ///////////////////////////////////////////////////////////////
@@ -208,47 +209,7 @@ class MainWindow(QMainWindow):
 
     # Add the process_image function here
     def load_data_to_table(self):
-        # Connexion à la base de données
-        conn = sqlite3.connect("database.db")
-        cursor = conn.cursor()
-
-        # Exécutez votre requête SQL pour extraire les données
-        cursor.execute("SELECT image_name, date_processed FROM images")
-
-        # Récupérez toutes les lignes de résultats
-        rows = cursor.fetchall()
-
-        # Parcourez les lignes de résultats et remplissez le tableau
-        for row_number, row_data in enumerate(rows, start=1):
-            # Insérez une nouvelle ligne
-            
-            self.ui.tableWidget.insertRow(row_number)
-
-            for column_number, column_data in enumerate(row_data):
-                if column_number == 0:
-                    # Colonne "Image"
-                    # Supprimez l'extension du nom de fichier
-                    filename = os.path.splitext(column_data)[0]
-                    item = QTableWidgetItem(filename)
-                    self.ui.tableWidget.setItem(row_number, 0, item)
-                elif column_number == 1:
-                    # Colonne "Date"
-                    item = QTableWidgetItem(column_data)
-                    self.ui.tableWidget.setItem(row_number, 1, item)
-
-            # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
-            image_name = os.path.splitext(row_data[0])[0]
-            clean_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Clean"
-            unusable_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Unusable"
-
-            num_clean_images = len([f for f in os.listdir(clean_folder) if os.path.isfile(os.path.join(clean_folder, f))])
-            num_unusable_images = len([f for f in os.listdir(unusable_folder) if os.path.isfile(os.path.join(unusable_folder, f))])
-
-            # Mettez à jour les colonnes "Cell" et "Line" du tableau
-            item = QTableWidgetItem(str(num_clean_images))
-            self.ui.tableWidget.setItem(row_number, 2, item)
-            item = QTableWidgetItem(str(num_unusable_images))
-            self.ui.tableWidget.setItem(row_number, 3, item)
+        if not self.data_loaded:
 
             # Connexion à la base de données
             conn = sqlite3.connect("database.db")
@@ -263,46 +224,88 @@ class MainWindow(QMainWindow):
             # Parcourez les lignes de résultats et remplissez le tableau
             for row_number, row_data in enumerate(rows, start=1):
                 # Insérez une nouvelle ligne
+                
+                self.ui.tableWidget.insertRow(row_number)
+
+                for column_number, column_data in enumerate(row_data):
+                    if column_number == 0:
+                        # Colonne "Image"
+                        # Supprimez l'extension du nom de fichier
+                        filename = os.path.splitext(column_data)[0]
+                        item = QTableWidgetItem(filename)
+                        self.ui.tableWidget.setItem(row_number, 0, item)
+                    elif column_number == 1:
+                        # Colonne "Date"
+                        item = QTableWidgetItem(column_data)
+                        self.ui.tableWidget.setItem(row_number, 1, item)
+
+                # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
                 image_name = os.path.splitext(row_data[0])[0]
-                is_duplicate = False
+                clean_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Clean"
+                unusable_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Unusable"
 
-                for current_row in range(self.ui.tableWidget.rowCount()):
-                    current_image_name_item = self.ui.tableWidget.item(current_row, 0)
-                    if current_image_name_item and current_image_name_item.text() == image_name:
-                        is_duplicate = True
-                        break
+                num_clean_images = len([f for f in os.listdir(clean_folder) if os.path.isfile(os.path.join(clean_folder, f))])
+                num_unusable_images = len([f for f in os.listdir(unusable_folder) if os.path.isfile(os.path.join(unusable_folder, f))])
 
-                if not is_duplicate:
-                    self.ui.tableWidget.insertRow(row_number)
+                # Mettez à jour les colonnes "Cell" et "Line" du tableau
+                item = QTableWidgetItem(str(num_clean_images))
+                self.ui.tableWidget.setItem(row_number, 2, item)
+                item = QTableWidgetItem(str(num_unusable_images))
+                self.ui.tableWidget.setItem(row_number, 3, item)
 
-                    for column_number, column_data in enumerate(row_data):
-                        if column_number == 0:
-                            # Colonne "Image"
-                            item = QTableWidgetItem(column_data)
-                            self.ui.tableWidget.setItem(row_number, 0, item)
-                        elif column_number == 1:
-                            # Colonne "Date"
-                            item = QTableWidgetItem(column_data)
-                            self.ui.tableWidget.setItem(row_number, 1, item)
-                            
+                # Connexion à la base de données
+                conn = sqlite3.connect("database.db")
+                cursor = conn.cursor()
+
+                # Exécutez votre requête SQL pour extraire les données
+                cursor.execute("SELECT image_name, date_processed FROM images")
+
+                # Récupérez toutes les lignes de résultats
+                rows = cursor.fetchall()
+
+                # Parcourez les lignes de résultats et remplissez le tableau
+                for row_number, row_data in enumerate(rows, start=1):
+                    # Insérez une nouvelle ligne
+                    image_name = os.path.splitext(row_data[0])[0]
+                    is_duplicate = False
+
+                    for current_row in range(self.ui.tableWidget.rowCount()):
+                        current_image_name_item = self.ui.tableWidget.item(current_row, 0)
+                        if current_image_name_item and current_image_name_item.text() == image_name:
+                            is_duplicate = True
+                            break
+
+                    if not is_duplicate:
+                        self.ui.tableWidget.insertRow(row_number)
+
+                        for column_number, column_data in enumerate(row_data):
+                            if column_number == 0:
+                                # Colonne "Image"
+                                item = QTableWidgetItem(column_data)
+                                self.ui.tableWidget.setItem(row_number, 0, item)
+                            elif column_number == 1:
+                                # Colonne "Date"
+                                item = QTableWidgetItem(column_data)
+                                self.ui.tableWidget.setItem(row_number, 1, item)
+                                
+                            # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
                         # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
-                    # Mettez à jour le nombre d'images dans les dossiers "Clean" et "Unusable"
-                    
-                    image_name = row_data[0]
-                    clean_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Clean"
-                    unusable_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Unusable"
-
-                    # Vérifiez si les dossiers existent avant de compter les images
-                    if os.path.exists(clean_folder):
-                        num_clean_images = len([f for f in os.listdir(clean_folder) if os.path.isfile(os.path.join(clean_folder, f))])
-                        item = QTableWidgetItem(str(num_clean_images))
-                        self.ui.tableWidget.setItem(row_number, 2, item)
-
-                    if os.path.exists(unusable_folder):
-                        num_unusable_images = len([f for f in os.listdir(unusable_folder) if os.path.isfile(os.path.join(unusable_folder, f))])
-                        item = QTableWidgetItem(str(num_unusable_images))
-                        self.ui.tableWidget.setItem(row_number, 3, item)
                         
+                        image_name = row_data[0]
+                        clean_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Clean"
+                        unusable_folder = f"C:\\Users\\eyaam\\Desktop\\ESEO\\projet\\notre projet\\git\\PFE_ESEO-master\\découpe\\{image_name}\\Unusable"
+
+                        # Vérifiez si les dossiers existent avant de compter les images
+                        if os.path.exists(clean_folder):
+                            num_clean_images = len([f for f in os.listdir(clean_folder) if os.path.isfile(os.path.join(clean_folder, f))])
+                            item = QTableWidgetItem(str(num_clean_images))
+                            self.ui.tableWidget.setItem(row_number, 2, item)
+
+                        if os.path.exists(unusable_folder):
+                            num_unusable_images = len([f for f in os.listdir(unusable_folder) if os.path.isfile(os.path.join(unusable_folder, f))])
+                            item = QTableWidgetItem(str(num_unusable_images))
+                            self.ui.tableWidget.setItem(row_number, 3, item)
+            self.data_loaded = True               
 def process_image(img_path, saving_path):
     if img_path not in processed_images:
         # The content of the process_image function
